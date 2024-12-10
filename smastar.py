@@ -67,10 +67,10 @@ class SMAStar:
                     self.closed_list[neighbor] = new_g
                     heapq.heappush(self.open_list, (f_neighbor, neighbor, new_g))
 
-            # Kiểm tra giới hạn bộ nhớ
-            if len(self.open_list) > self.memory_limit:
-                # Loại bỏ nút có f(n) cao nhất
-                self.open_list.pop()
+                    # Kiểm tra giới hạn bộ nhớ
+                    if len(self.open_list) > self.memory_limit:
+                        # Loại bỏ nút có f(n) cao nhất
+                        self.open_list.pop()
 
         search_end_time = time.time()
         print(f"Thời gian tìm kiếm: {search_end_time - search_start_time:.6f} giây")
