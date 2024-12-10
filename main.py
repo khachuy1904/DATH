@@ -10,21 +10,21 @@ graph = {
     'G': []
 }
 heuristic = {
-    'S': 3,
-    'A': 1,
+    'A': 3,
     'B': 1,
     'C': 1,
-    'G': 0
+    'D': 1,
+    'E': 0
 }
 
 # Ví dụ sử dụng:
-node_names = ['S', 'A', 'B', 'C', 'G','H', 'O']
+node_names = ['A', 'B', 'C', 'D', 'E']
 g = generate_named_graph(node_names, min_weight=1, max_weight=10)
 print(g)
 
-start = 'S'
-goal = 'G'
-memory_limit = 3
+start = 'A'
+goal = 'E'
+memory_limit = min(len(node_names) - 1, 100)
 
 
 # Chạy thuật toán SMA* và tính thời gian
