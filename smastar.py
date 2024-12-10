@@ -1,78 +1,189 @@
 import heapq
-import time
-def heuristic(graph, current, goal):
-    """
-    Hàm heuristic thỏa mãn admissible và consistency.
-    - current: đỉnh hiện tại.
-    - goal: đỉnh đích.
-    """
-    # Tìm trọng số nhỏ nhất trong đồ thị
-    min_weight = min(weight for _, _, weight in graph)
+
+class Node: 
+    def __init__(self, state, parent, gn, hn, depth, graph, heuristic):
+        self.state = state
+        self.parent = parent
+        self.gn = gn
+        self.hn = hn
+        self.fn = gn + hn
+        self.depth = depth
+        self.expand_all = False
+        self.visited = []
+        self.forgotten = [float('inf')]
+        self.children = self.expand_node(graph, heuristic)
+
+    def __lt__(self, other):
+        if self.fn == other.fn:
+            return self.depth > other.depth
+        return self.fn < other.fn
     
-    estimated_steps = abs(goal - current)  # Khoảng cách ước tính dựa trên chỉ số các đỉnh
+    # def expand_node(self, graph, heuristic):
+    #     children = []
+    #     for neighbor, cost in graph[self.state]:
+    #         gn = self.gn + cost
+    #         hn = heuristic[neighbor]
+    #         children.append(Node(neighbor, self, gn, hn, self.depth + 1, graph, heuristic))
+    #     return children
 
-    # Giá trị heuristic: trọng số nhỏ nhất nhân với số bước dự tính
-    return min_weight * estimated_steps
+    def expand_node(self, graph, heuristic):
+        children = []
+        current_state_path = self.Get_path()  # Lấy danh sách các đỉnh trên đường đi hiện tại
+        for neighbor, cost in graph[self.state]:
+            if neighbor in current_state_path:  # Ngăn đệ quy quay lại chu trình
+                continue
+            gn = self.gn + cost
+            hn = heuristic.get(neighbor, float('inf'))  # Giá trị mặc định cho heuristic
+            children.append(Node(neighbor, self, gn, hn, self.depth + 1, graph, heuristic))
+        return children
 
-class SMAStar:
-    def __init__(self, graph, start, goal, memory_limit):
-        self.graph = graph  # Đồ thị: danh sách cạnh [(u, v, weight), ...]
-        self.start = start  # Đỉnh bắt đầu
-        self.goal = goal  # Đỉnh đích
-        self.memory_limit = memory_limit  # Giới hạn bộ nhớ
-        self.open_list = []  # Hàng đợi ưu tiên (heapq)
-        self.closed_list = {}  # Các trạng thái đã được mở rộng
+    def Get_path(self):
+        """
+        Trả về danh sách các đỉnh trên đường đi từ gốc đến đỉnh hiện tại.
+        """
+        path = []
+        node = self
+        while node:
+            path.append(node.state)
+            node = node.parent
+        return set(path)
 
-    def heuristic(self, node):
-        # Sử dụng heuristic thỏa mãn consistency và admissible
-        return heuristic(self.graph, node, self.goal)
+    def resetNode(self):
+        self.fn = self.gn + self.hn
+        self.expand_all = False
+        self.visited = []
+        self.forgotten = [float('inf')]
 
-    def expand_node(self, node, g_cost):
-        neighbors = []  
-        for u, v, weight in self.graph:
-            if u == node:
-                neighbors.append((v, weight))
-            elif v == node:
-                neighbors.append((u, weight))
-        return neighbors
 
-    def search(self):
-        # Đo thời gian tổng thể của hàm search
-        search_start_time = time.time()
-        # Khởi tạo
-        start_node = (self.heuristic(self.start), self.start, 0)  # (f(n), node, g(n))
-        heapq.heappush(self.open_list, start_node)
+def get_path(node):
+    path = []
+    while node:
+        path.append(node.state)
+        node = node.parent
+    return path[::-1]
 
-        while self.open_list:
-            # Lấy nút có f(n) thấp nhất từ hàng đợi
-            f, current, g = heapq.heappop(self.open_list)
 
-            # Nếu đến đích, trả về đường đi
-            if current == self.goal:
-                search_end_time = time.time()
-                print(f"Thời gian tìm kiếm: {search_end_time - search_start_time:.6f} giây")
-                return g  # Trả về chi phí tổng
+def update_fn(node, queue):
+    node.expand_all = True
+    temp_node = node
+    while temp_node and temp_node.expand_all:
+        child_fn = []
+        for child in temp_node.children: 
+            if child in queue:
+                child_fn.append(child.fn)
 
-            # Đánh dấu nút là đã mở rộng
-            self.closed_list[current] = g
+        if child_fn:  # Kiểm tra nếu child_fn không rỗng
+            min_child_fn = min(child_fn)
+        else:
+            min_child_fn = float('inf')  # Gán giá trị lớn vô cùng nếu không có con
 
-            # Mở rộng nút
-            neighbors = self.expand_node(current, g)
-            for neighbor, cost in neighbors:
-                new_g = g + cost
-                f_neighbor = new_g + self.heuristic(neighbor)
+        min_forgotten = min(temp_node.forgotten) if temp_node.forgotten else float('inf')
 
-                # Nếu nút không có trong closed_list hoặc có chi phí nhỏ hơn
-                if neighbor not in self.closed_list or new_g < self.closed_list[neighbor]:
-                    self.closed_list[neighbor] = new_g
-                    heapq.heappush(self.open_list, (f_neighbor, neighbor, new_g))
+        if min_forgotten < min_child_fn:
+            temp_node.fn = min_forgotten
+            temp_node.forgotten.remove(min_forgotten)
+        else:
+            temp_node.fn = min_child_fn
+        temp_node = temp_node.parent
 
-                    # Kiểm tra giới hạn bộ nhớ
-                    if len(self.open_list) > self.memory_limit:
-                        # Loại bỏ nút có f(n) cao nhất
-                        self.open_list.pop()
+         
 
-        search_end_time = time.time()
-        print(f"Thời gian tìm kiếm: {search_end_time - search_start_time:.6f} giây")
+def print_queue(queue):
+    for node in queue:
+        print(node.state, end = " ")
+    print()
 
-        return None  # Không tìm thấy đường đi
+
+def sma_star(start, goal, graph, heuristic, memory_limit):
+    root = Node(start, None, 0, heuristic[start], 0, graph, heuristic)
+    queue = [root]
+
+    while queue:
+        heapq.heapify(queue)
+        print_queue(queue)
+        node = queue[0]
+
+        if node.state == goal:
+            return get_path(node)
+        
+        successor = None 
+        for child in node.children:
+            if child not in node.visited:
+                successor = child
+                node.visited.append(child)
+                break
+            elif child.fn <= node.fn:
+                successor = child
+                break
+        
+        if not successor:
+            queue.remove(node)
+            continue
+
+        if (not successor.state == goal) and (successor.depth + 1 == memory_limit):
+            successor.fn = float('inf')
+        else:
+            successor.fn = max(node.fn, successor.fn)
+
+        if len(queue) >= memory_limit:
+            removal_candidates = [temp_node for temp_node in queue if temp_node is not node]
+            badNode = max(removal_candidates, key=lambda temp_node: (temp_node.fn, temp_node.depth))
+            queue.remove(badNode)
+            badNode.resetNode
+            badNode.parent.forgotten.append(badNode.fn)
+
+        queue.append(successor)
+
+        if (not node.expand_all) and (len(node.visited) == len(node.children)):
+            update_fn(node, queue)
+
+
+    return None 
+
+# '''if __name__ == "__main__":
+#   graph = {
+#         'S': [('A', 10), ('B', 8)],
+#         'A': [('C', 2), ('G', 10)],
+#         'B': [('D', 8), ('G', 16)],
+#         'C': [('E', 3), ('G', 9)],
+#         'E': [('G', 2)],
+#         'D': [('G', 3), ('H', 1)],
+#         'H': [('F', 1)],
+#         'F': [],
+#         'G': []
+#     }
+#   heuristic = {
+#         'S': 12,
+#         'A': 5,
+#         'B': 5,
+#         'C': 5,
+#         'D': 2,
+#         'E': 2,
+#         'F': 1,
+#         'H': 1,
+#         'G': 0
+#   }
+#   start = 'S'
+#   goal = 'G'
+#   memory_limit = 4
+#   print(sma_star(start, goal, graph, heuristic, memory_limit))'''
+
+# if __name__ == "__main__":
+#   graph = {
+#         'S': [('A', 4), ('B', 5), ('C', 6)],
+#         'A': [('G', 5)],
+#         'B': [('G', 3)],
+#         'C': [('G', 1)],
+#         'G': []
+#     }
+#   heuristic = {
+#         'S': 3,
+#         'A': 1,
+#         'B': 1,
+#         'C': 1,
+#         'G': 0
+#   }
+#   start = 'S'
+#   goal = 'G'
+#   memory_limit = 3
+#   print(sma_star(start, goal, graph, heuristic, memory_limit))
