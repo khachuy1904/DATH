@@ -91,7 +91,7 @@ def sma_star(start, goal, graph, heuristic, memory_limit):
     closed_list = {}
     counter = 0
 
-    while queue and counter < 20 :
+    while queue :
         print(f"Iteration: {counter}")
         counter += 1 
         heapq.heapify(queue)

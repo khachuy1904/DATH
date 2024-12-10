@@ -60,3 +60,13 @@ def generate_named_graph(node_names, min_weight=1, max_weight=10):
     return graph
 
 
+def heuristic_degree(graph):
+    """
+    Tạo hàm heuristic dựa trên số lượng cạnh đi ra từ mỗi đỉnh.
+    """
+    heuristic = {}
+    
+    for node, edges in graph.items():
+        heuristic[node] = len(edges)  # Số lượng cạnh đi ra từ node
+    
+    return heuristic
